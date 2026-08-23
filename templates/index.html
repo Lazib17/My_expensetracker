@@ -1,335 +1,318 @@
-<!DOCTYPE html>
-<html lang="en" class="h-full">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Dashboard · Expense Tracker</title>
+{% extends "base.html" %}
+{% block title %}Dashboard · Expense Tracker{% endblock %}
 
-    <!-- Tailwind CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: "class",
-        theme: { extend: { colors: { brand: { DEFAULT: "#38bdf8" } } } },
-      };
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  </head>
-  <body class="h-full bg-slate-900 text-slate-100">
-    <main class="mx-auto max-w-6xl px-4 py-8">
-      <h1 class="text-3xl font-semibold mb-2">Dashboard</h1>
-      <p class="text-slate-400 mb-6">
-        Track spending, filter by date/category, and visualize instantly.
-      </p>
+{% block content %}
+  <h1 class="text-3xl font-semibold mb-2">Dashboard</h1>
+  <p class="text-slate-400 mb-6">
+    Track spending, set a monthly budget, and keep your history on your account.
+  </p>
 
-      <!-- Filters + Add form -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <!-- Filters -->
-        <section
-          class="lg:col-span-2 rounded-2xl border border-slate-800 bg-slate-900 p-4"
-        >
-          <h2 class="text-lg font-semibold mb-3">Filters</h2>
-          <form
-           method="get" 
-           action="{{url_for('index')}}" 
-           class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end pr-5"
-           >
-            <label class="text-sm">
-              <span class="block mb-1 text-slate-300">Start</span>
-              <input
-                name="start"
-                value="{{start_str or ''}}"
-                type="date"
-                class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
-              />
-            </label>
-            <label class="text-sm">
-              <span class="block mb-1 text-slate-300">End</span>
-              <input
-                name="end"
-                value="{{end_str or ''}}"
-                type="date"
-                class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
-              />
-            </label>
-            <label class="text-sm md:col-span-2">
-              <span class="block mb-1 text-slate-300">Category</span>
-              <select name="category"
-                class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
-              >
-                <option value="">All</option>
+  <section class="rounded-2xl border border-slate-800 bg-slate-900 p-4 mb-4">
+    <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+      <div>
+        <h2 class="text-lg font-semibold mb-1">Budget target</h2>
+        <p class="text-sm text-slate-400">
+          Set a monthly limit for {{ budget.month_label }}. We'll notify you if you go over.
+        </p>
+      </div>
+      <form method="post" action="{{ url_for('set_budget') }}" class="flex flex-col sm:flex-row gap-2 sm:items-end">
+        <label class="block text-sm">
+          <span class="mb-1 block text-slate-300">Monthly budget</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            name="budget_target"
+            value="{{ '%.2f'|format(budget.target) if budget.target else '' }}"
+            placeholder="500.00"
+            class="w-full sm:w-40 rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
+          />
+        </label>
+        <button class="rounded-xl bg-brand/20 hover:bg-brand/30 text-brand px-4 py-2 border border-brand/30" type="submit">
+          Save target
+        </button>
+      </form>
+    </div>
 
-                {% for c in catergories %}
-
-
-
-                <option value="{{c}}" {% if selected_category == c %}selected{% endif %}>{{c}}</option>
-
-                {% endfor %}
-
-
-              </select>
-            </label>
-            <div class="flex gap-2">
-              <button
-                class="rounded-xl bg-brand/20 hover:bg-brand/30 text-brand px-4 py-2 border border-brand/30"
-                type="submit"
-              >
-                Apply
-              </button>
-              <a
-                class="rounded-xl bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700"
-                href="{{url_for('index')}}"
-                >Reset</a
-              >
-            </div>
-          </form>
-
-          <!-- Total -->
-          <div class="mt-4 text-sm text-slate-300">
-            <span class="mr-2">Total:</span>
-            <span
-              class="inline-block rounded-xl border border-slate-700 bg-slate-800 px-3 py-1 font-semibold"
-            >
-              ${{ '%.2f'|format(total or 0) }}
-            </span>
-          </div>
-
-          <!-- Export link -->
-          <div class="mt-3">
-            <a
-              class="text-xs text-slate-400 hover:text-brand underline"
-              href="{{url_for('export_csv', start=start_str, end=end_str, category=selected_category)}}" 
-            >
-              Export CSV (current filter)
-            </a>
-          </div>
-        </section>
-
-        <!-- Add Expense -->
-        <section class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-          <h2 class="text-lg font-semibold mb-3">Add Expense</h2>
-          <form method="post" action="{{url_for('add')}}" class="space-y-3">
-            <label class="block text-sm">
-              <span class="mb-1 block text-slate-300">Description</span>
-              <input
-                name="description"
-                placeholder="e.g., Groceries"
-                class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
-              />
-            </label>
-            <div class="grid grid-cols-2 gap-3">
-              <label class="block text-sm">
-                <span class="mb-1 block text-slate-300">Amount</span>
-                <input
-                  name="amount"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  placeholder="25.00"
-                  class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
-                />
-              </label>
-              <label class="block text-sm">
-                <span class="mb-1 block text-slate-300">Date</span>
-                <input
-                  name="date"
-                  value="{{today}}"
-                  type="date"
-                  class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
-                />
-              </label>
-            </div>
-            <label class="block text-sm">
-              <span class="mb-1 block text-slate-300">Category</span>
-              <select 
-                name="category"
-                class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
-              >
-                {%for c in catergories%}
-
-
-                <option value="{{c}}">{{c}}</option>
-                
-                {% endfor %}
-
-      
-              </select>
-            </label>
-            <button
-              class="w-full rounded-xl bg-brand/20 hover:bg-brand/30 text-brand px-4 py-2 border border-brand/30"
-              type="submit"
-            >
-              Add Expense
-            </button>
-          </form>
-        </section>
+    <div class="mt-4">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-300">
+        <span>This month: <strong>${{ '%.2f'|format(budget.spent or 0) }}</strong></span>
+        {% if budget.target %}
+          <span>Target: <strong>${{ '%.2f'|format(budget.target) }}</strong></span>
+          <span>
+            {% if budget.over %}
+              Over by <strong class="text-rose-300">${{ '%.2f'|format(-budget.remaining) }}</strong>
+            {% else %}
+              Remaining: <strong class="text-emerald-300">${{ '%.2f'|format(budget.remaining) }}</strong>
+            {% endif %}
+          </span>
+        {% else %}
+          <span class="text-slate-400">No budget set yet.</span>
+        {% endif %}
       </div>
 
-      <!-- Total (global) -->
-      <div class="mb-3 mt-6">
-        <span class="text-sm text-slate-300 mr-2">Total:</span>
-        <span
-          class="inline-block rounded-xl border border-slate-700 bg-slate-800 px-3 py-1 font-semibold"
-        >
+      {% if budget.target %}
+        {% set bar_width = budget.percent if budget.percent < 100 else 100 %}
+        <div class="mt-3 h-3 rounded-full bg-slate-800 overflow-hidden border border-slate-700">
+          <div
+            class="h-full rounded-full {% if budget.over %}bg-rose-400{% elif budget.warning %}bg-amber-400{% else %}bg-brand{% endif %}"
+            style="width: {{ bar_width }}%"
+          ></div>
+        </div>
+        <p class="mt-2 text-xs text-slate-400">{{ budget.percent }}% of your monthly budget used</p>
+      {% endif %}
+    </div>
+
+    {% if budget.over %}
+      <div class="mt-4 rounded-xl px-4 py-3 text-sm bg-rose-500/10 text-rose-300 border border-rose-400/20">
+        You are exceeding your {{ budget.month_label }} budget. This month's spending is
+        ${{ '%.2f'|format(budget.spent) }} against a target of ${{ '%.2f'|format(budget.target) }}.
+      </div>
+    {% elif budget.warning %}
+      <div class="mt-4 rounded-xl px-4 py-3 text-sm bg-amber-500/10 text-amber-300 border border-amber-400/20">
+        You are close to your {{ budget.month_label }} budget. {{ budget.percent }}% has already been used.
+      </div>
+    {% endif %}
+  </section>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <section class="lg:col-span-2 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+      <h2 class="text-lg font-semibold mb-3">Filters</h2>
+      <form
+        method="get"
+        action="{{ url_for('index') }}"
+        class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end pr-5"
+      >
+        <label class="text-sm">
+          <span class="block mb-1 text-slate-300">Start</span>
+          <input
+            name="start"
+            value="{{ start_str or '' }}"
+            type="date"
+            class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
+          />
+        </label>
+        <label class="text-sm">
+          <span class="block mb-1 text-slate-300">End</span>
+          <input
+            name="end"
+            value="{{ end_str or '' }}"
+            type="date"
+            class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
+          />
+        </label>
+        <label class="text-sm md:col-span-2">
+          <span class="block mb-1 text-slate-300">Category</span>
+          <select name="category" class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100">
+            <option value="">All</option>
+            {% for c in filter_categories %}
+              <option value="{{ c }}" {% if selected_category == c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <div class="flex gap-2">
+          <button class="rounded-xl bg-brand/20 hover:bg-brand/30 text-brand px-4 py-2 border border-brand/30" type="submit">
+            Apply
+          </button>
+          <a class="rounded-xl bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700" href="{{ url_for('index') }}">
+            Reset
+          </a>
+        </div>
+      </form>
+
+      <div class="mt-4 text-sm text-slate-300">
+        <span class="mr-2">Filtered total:</span>
+        <span class="inline-block rounded-xl border border-slate-700 bg-slate-800 px-3 py-1 font-semibold">
           ${{ '%.2f'|format(total or 0) }}
         </span>
       </div>
 
-      <!-- Expenses table -->
-      <section class="rounded-2xl border border-slate-800 bg-slate-900">
-        <div class="px-4 py-3 border-b border-slate-800">
-          <h2 class="text-lg font-semibold">Expenses</h2>
+      <div class="mt-3">
+        <a
+          class="text-xs text-slate-400 hover:text-brand underline"
+          href="{{ url_for('export_csv', start=start_str, end=end_str, category=selected_category) }}"
+        >
+          Export CSV (current filter)
+        </a>
+      </div>
+    </section>
+
+    <section class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+      <h2 class="text-lg font-semibold mb-3">Add Expense</h2>
+      <form method="post" action="{{ url_for('add') }}" class="space-y-3">
+        <label class="block text-sm">
+          <span class="mb-1 block text-slate-300">Description</span>
+          <input
+            name="description"
+            placeholder="e.g., Groceries"
+            class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
+          />
+        </label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block text-sm">
+            <span class="mb-1 block text-slate-300">Amount</span>
+            <input
+              name="amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              placeholder="25.00"
+              class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
+            />
+          </label>
+          <label class="block text-sm">
+            <span class="mb-1 block text-slate-300">Date</span>
+            <input
+              name="date"
+              value="{{ today }}"
+              type="date"
+              class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
+            />
+          </label>
         </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-sm">
-            <thead class="text-slate-300 bg-slate-800/50">
-              <tr>
-                <th class="text-left px-4 py-3">Date</th>
-                <th class="text-left px-4 py-3">Description</th>
-                <th class="text-left px-4 py-3">Category</th>
-                <th class="text-right px-4 py-3">Amount</th>
-                <th class="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {% if expenses %}
+        <label class="block text-sm">
+          <span class="mb-1 block text-slate-300">Category</span>
+          <select id="add-category" name="category" class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100">
+            {% for c in catergories %}
+              <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label id="add-custom-wrap" class="hidden block text-sm">
+          <span class="mb-1 block text-slate-300">Your category</span>
+          <input
+            id="add-custom-category"
+            name="custom_category"
+            maxlength="50"
+            placeholder="e.g., Gifts, Pets, School"
+            class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
+          />
+        </label>
+        <button class="w-full rounded-xl bg-brand/20 hover:bg-brand/30 text-brand px-4 py-2 border border-brand/30" type="submit">
+          Add Expense
+        </button>
+      </form>
+    </section>
+  </div>
 
-              {% for e in expenses %}
+  <div class="mb-3 mt-6">
+    <span class="text-sm text-slate-300 mr-2">Total:</span>
+    <span class="inline-block rounded-xl border border-slate-700 bg-slate-800 px-3 py-1 font-semibold">
+      ${{ '%.2f'|format(total or 0) }}
+    </span>
+  </div>
 
-
-
+  <section class="rounded-2xl border border-slate-800 bg-slate-900">
+    <div class="px-4 py-3 border-b border-slate-800">
+      <h2 class="text-lg font-semibold">Expenses</h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="text-slate-300 bg-slate-800/50">
+          <tr>
+            <th class="text-left px-4 py-3">Date</th>
+            <th class="text-left px-4 py-3">Description</th>
+            <th class="text-left px-4 py-3">Category</th>
+            <th class="text-right px-4 py-3">Amount</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if expenses %}
+            {% for e in expenses %}
               <tr class="border-t border-slate-800 hover:bg-slate-800/30">
                 <td class="px-4 py-2">{{ e.date.strftime('%Y-%m-%d') if e.date else '' }}</td>
                 <td class="px-4 py-2">{{ e.description }}</td>
                 <td class="px-4 py-2">{{ e.category }}</td>
                 <td class="px-4 py-2 text-right">${{ '%.2f'|format(e.amount) }}</td>
                 <td class="px-4 py-2 text-right">
-
-                  <div class = "inline-flex gap-2">
-
-                    <a class= "
-                    text-sky-300 
-                    hover:text-sky-200 
-                    text-xs
-                    border
-                    border-sky-400/30
-                    px-3
-                    py-1
-                    rounded-lg
-                    
-                    "
-                    href="{{url_for('edit', expense_id=e.id)}}">EDIT</a>
-
-                    
-
-                  <form
-                    method="post"
-                    action="{{ url_for('delete', expense_id=e.id) }}"
-                    onsubmit="return confirm('Are you sure you want to delete this expense?')"
-                  >
-                  
-                  
-
-                  <button
-                    class="text-rose-300 hover:text-rose-200 text-xs border border-rose-400/30 px-3 py-1 rounded-lg"
-                  >
-                    Delete
-                  </button>
-
-                </form>
-
-                </div>
-
-
-
+                  <div class="inline-flex gap-2">
+                    <a
+                      class="text-sky-300 hover:text-sky-200 text-xs border border-sky-400/30 px-3 py-1 rounded-lg"
+                      href="{{ url_for('edit', expense_id=e.id) }}"
+                    >EDIT</a>
+                    <form
+                      method="post"
+                      action="{{ url_for('delete', expense_id=e.id) }}"
+                      onsubmit="return confirm('Are you sure you want to delete this expense?')"
+                    >
+                      <button class="text-rose-300 hover:text-rose-200 text-xs border border-rose-400/30 px-3 py-1 rounded-lg">
+                        Delete
+                      </button>
+                    </form>
+                  </div>
                 </td>
               </tr>
-              
-              {% endfor %}
-              {% else %}
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="5" class="px-4 py-6 text-center text-slate-400">
+                No expenses yet — add your first one above.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
 
+  <section class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+      <h3 class="font-semibold mb-2">By Category</h3>
+      <canvas id="catChart" height="140"></canvas>
+    </div>
+    <div class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+      <h3 class="font-semibold mb-2">Spending Over Time</h3>
+      <canvas id="dayChart" height="140"></canvas>
+    </div>
+  </section>
+{% endblock %}
 
-              <tr>
-                <td colspan="5" class="px-4 py-6 text-center text-slate-400">
-                  No expenses yet — add your first one above.
-                </td>
-              </tr>
-
-              {% endif %}
-
-
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- Charts -->
-      <section class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-          <h3 class="font-semibold mb-2">By Category</h3>
-          <canvas id="catChart" height="140"></canvas>
-        </div>
-        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-          <h3 class="font-semibold mb-2">Spending Over Time</h3>
-          <canvas id="dayChart" height="140"></canvas>
-        </div>
-      </section>
-    </main>
-  </body>
-</html>
-
+{% block body_end %}
 <script>
+const catLabels = {{ (cat_labels or []) | tojson }};
+const catValues = {{ (cat_values or []) | tojson }};
+const dayLabels = {{ (day_labels or []) | tojson }};
+const dayValues = {{ (day_values or []) | tojson }};
 
-const catLabels = {{(cat_labels or []) | tojson}};
-const catValues = {{(cat_values or []) | tojson}};
-const dayLabels = {{(day_labels or []) | tojson}};
-const dayValues = {{(day_values or []) | tojson}};
-
-
-if (document.getElementById('catChart')){
-  const catCtx = document.getElementById('catChart').getContext('2d')
-
+if (document.getElementById('catChart')) {
+  const catCtx = document.getElementById('catChart').getContext('2d');
   new Chart(catCtx, {
-    type : 'pie',
-    data : {labels: catLabels, datasets: [{data: catValues}]},
-    options: {plugins: {legend: {labels: {color: '#cbd5e1'}}}}
+    type: 'pie',
+    data: { labels: catLabels, datasets: [{ data: catValues }] },
+    options: { plugins: { legend: { labels: { color: '#cbd5e1' } } } }
   });
 }
 
-
-
-if (document.getElementById('dayChart')){
-  const dayCtx = document.getElementById('dayChart').getContext('2d')
-
+if (document.getElementById('dayChart')) {
+  const dayCtx = document.getElementById('dayChart').getContext('2d');
   new Chart(dayCtx, {
-    type : 'bar',
-    data : {
-      labels: dayLabels, datasets: [{
-        label:'Total',
-        data: dayValues,
-      }]
-
+    type: 'bar',
+    data: {
+      labels: dayLabels,
+      datasets: [{ label: 'Total', data: dayValues }]
     },
     options: {
-      plugins: {
-        legend: {
-          labels: {
-            color: '#334155'
-          }
-        }
-      },
-
+      plugins: { legend: { labels: { color: '#cbd5e1' } } },
       scales: {
-        x: {ticks: {color: '#cbd5e1'}, grid: {color: '#334155'} },
-        y: {ticks: {color: '#cbd5e1'}, grid: {color: '#334155'} }
+        x: { ticks: { color: '#cbd5e1' }, grid: { color: '#334155' } },
+        y: { ticks: { color: '#cbd5e1' }, grid: { color: '#334155' } }
       }
     }
   });
 }
 
-    
-
+const addCategory = document.getElementById('add-category');
+const addCustomWrap = document.getElementById('add-custom-wrap');
+const addCustomInput = document.getElementById('add-custom-category');
+function toggleAddCustom() {
+  const show = addCategory && addCategory.value === 'Others';
+  if (addCustomWrap) addCustomWrap.classList.toggle('hidden', !show);
+  if (addCustomInput) addCustomInput.required = !!show;
+}
+if (addCategory) {
+  addCategory.addEventListener('change', toggleAddCustom);
+  toggleAddCustom();
+}
 </script>
-
-
+{% endblock %}

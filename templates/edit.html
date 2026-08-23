@@ -31,12 +31,23 @@
 
       <label class="block text-sm">
         <span class="mb-1 block text-slate-300">Category</span>
-        <select name="category"
+        <select id="edit-category" name="category"
                 class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100">
           {% for c in categories %}
-            <option value="{{ c }}" {% if expense.category == c %}selected{% endif %}>{{ c }}</option>
+            <option value="{{ c }}" {% if selected_category == c %}selected{% endif %}>{{ c }}</option>
           {% endfor %}
         </select>
+      </label>
+      <label id="edit-custom-wrap" class="{% if selected_category != 'Others' %}hidden {% endif %}block text-sm">
+        <span class="mb-1 block text-slate-300">Your category</span>
+        <input
+          id="edit-custom-category"
+          name="custom_category"
+          maxlength="50"
+          value="{{ custom_category }}"
+          placeholder="e.g., Gifts, Pets, School"
+          class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-slate-100"
+        />
       </label>
 
       <div class="flex items-center gap-2">
@@ -48,4 +59,21 @@
       </div>
     </form>
   </section>
+{% endblock %}
+
+{% block body_end %}
+<script>
+const editCategory = document.getElementById('edit-category');
+const editCustomWrap = document.getElementById('edit-custom-wrap');
+const editCustomInput = document.getElementById('edit-custom-category');
+function toggleEditCustom() {
+  const show = editCategory && editCategory.value === 'Others';
+  if (editCustomWrap) editCustomWrap.classList.toggle('hidden', !show);
+  if (editCustomInput) editCustomInput.required = !!show;
+}
+if (editCategory) {
+  editCategory.addEventListener('change', toggleEditCustom);
+  toggleEditCustom();
+}
+</script>
 {% endblock %}
