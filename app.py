@@ -1,16 +1,32 @@
+import os
+import tempfile
+from pathlib import Path
+
 from flask import Flask, render_template, request, url_for, make_response, flash, redirect, Response
 from flask_sqlalchemy import SQLAlchemy
-from datetime import date, datetime, date as dt_date   
+from datetime import date, datetime, date as dt_date
 from sqlalchemy import func
 
 
+BASE_DIR = Path(__file__).resolve().parent
 
-app = Flask(__name__)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///expenses.db"
+def database_uri() -> str:
+    if os.environ.get("VERCEL"):
+        db_path = Path(tempfile.gettempdir()) / "expenses.db"
+    else:
+        instance_dir = BASE_DIR / "instance"
+        instance_dir.mkdir(parents=True, exist_ok=True)
+        db_path = instance_dir / "expenses.db"
+    return "sqlite:///" + db_path.resolve().as_posix()
+
+
+app = Flask(__name__, template_folder=str(BASE_DIR / "templates"))
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_uri()
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SECRET_KEY"] = "my-secret-key"
-db=SQLAlchemy(app)
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "my-secret-key")
+db = SQLAlchemy(app)
 
 
 class Expense(db.Model):
@@ -26,8 +42,19 @@ class Expense(db.Model):
 
 
 
-with app.app_context():
+def init_db():
     db.create_all()
+
+
+with app.app_context():
+    init_db()
+
+
+@app.before_request
+def _ensure_db():
+    if not app.config.get("DB_READY"):
+        init_db()
+        app.config["DB_READY"] = True
 
 
 CATEGORIES = ["Food", "Transport", "Rent", "Utilities", "Health"]
@@ -108,7 +135,7 @@ def index():
         day_q= day_q.filter(Expense.category == selected_category)
 
 
-    day_rows= day_q.group_by(Expense.category).order_by(Expense.date).all()
+    day_rows = day_q.group_by(Expense.date).order_by(Expense.date).all()
     
     day_labels = [d.isoformat() for d, _ in day_rows]
     day_values = [round(float(s or 0),2) for _, s in day_rows]
